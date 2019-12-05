@@ -1,0 +1,94 @@
+name: OpenWrt-RT-ACRH17
+
+on:
+  schedule:
+    - cron: 0 20 * * *
+  push:
+    tags:
+      - 'DEVICE_*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@master
+
+    - name: Free up disk space
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      run: |
+        docker rmi --force `docker images --quiet --all`
+        sudo rm -rf \
+          /usr/share/dotnet \
+          /etc/mysql \
+          /etc/php
+        sudo -E apt-get -y purge \
+          azure-cli \
+          ghc* \
+          zulu* \
+          hhvm \
+          llvm* \
+          firefox \
+          google* \
+          dotnet* \
+          powershell \
+          openjdk* \
+          mysql* \
+          php*
+
+    - name: Initialization environment
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      run: |
+        sudo -E apt-get update
+        sudo -E apt-get -y install build-essential asciidoc binutils bzip2 gawk gettext git libncurses5-dev libz-dev patch unzip zlib1g-dev lib32gcc1 libc6-dev-i386 subversion flex uglifyjs git-core gcc-multilib p7zip p7zip-full msmtp libssl-dev texinfo libglib2.0-dev xmlto qemu-utils upx libelf-dev autoconf automake libtool autopoint device-tree-compiler
+        sudo -E apt-get -y autoremove --purge
+        sudo -E apt-get clean
+
+    - name: Clone source code
+      run: |
+        git clone https://github.com/coolsnowwolf/lede
+        cd lede
+        git rev-parse HEAD
+
+    - name: Update feeds
+      run: |
+        cd lede
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
+
+    - name: Costom configure file
+      run: |
+        mv -v RT-ACRH17.config .config
+        [ -s ".config" ] || touch .config
+        cp -v .config lede
+        cd lede
+        make defconfig
+
+    - name: Make download
+      run: |
+        cd lede
+        echo -e "$((4*$(nproc))) thread download."
+        make download -j$((4*$(nproc)))
+        find dl -size -1024c -exec ls -l {} \;
+        find dl -size -1024c -exec rm -f {} \;
+
+    - name: Compile firmware
+      run: |
+        cd lede
+        echo -e "$(nproc) thread build."
+        make -j$(nproc) V=s
+
+    - name: Assemble artifact
+      run: |
+        mkdir artifact/
+        find lede/bin/targets/ -name "*combined*img*" | xargs -i mv -f {} artifact/
+        find lede/bin/targets/ -name "*sysupgrade*bin*" | xargs -i mv -f {} artifact/
+
+    - name : Upload artifact
+      uses: actions/upload-artifact@master
+      with:
+        name: OpenWrt RT-ACRH17
+        path: artifact/
