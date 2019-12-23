@@ -15,7 +15,7 @@ jobs:
     - name: Checkout
       uses: actions/checkout@master
 
-    - name: Free up disk space
+    - name: Space cleanup
       env:
         DEBIAN_FRONTEND: noninteractive
       run: |
@@ -23,7 +23,8 @@ jobs:
         sudo rm -rf \
           /usr/share/dotnet \
           /etc/mysql \
-          /etc/php
+          /etc/php \
+          /etc/apt/sources.list.d
         sudo -E apt-get -y purge \
           azure-cli \
           ghc* \
@@ -37,6 +38,10 @@ jobs:
           openjdk* \
           mysql* \
           php*
+        # 利用挂载在 /mnt/ 的 14G 额外空间:
+        sudo mkdir -p /mnt/lede
+        sudo chown -R $USER /mnt/lede
+        ln -sv /mnt/lede lede
 
     - name: Initialization environment
       env:
@@ -72,23 +77,20 @@ jobs:
         cd lede
         echo -e "$((4*$(nproc))) thread download."
         make download -j$((4*$(nproc)))
-        find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
 
     - name: Compile firmware
       run: |
         cd lede
         echo -e "$(nproc) thread build."
-        make -j$(nproc) V=s
+        make -j$(nproc) V=s || make -j1 V=s
 
-    - name: Assemble artifact
+    - name: Prepare artifact
       run: |
-        mkdir artifact/
-        find lede/bin/targets/ -name "*combined*img*" | xargs -i mv -f {} artifact/
-        find lede/bin/targets/ -name "*sysupgrade*bin*" | xargs -i mv -f {} artifact/
+        find lede/bin/targets/ -type d -name "packages" | xargs rm -rf {}
 
     - name : Upload artifact
       uses: actions/upload-artifact@master
       with:
         name: OpenWrt NEWIFI-3
-        path: artifact/
+        path: lede/bin/targets/
