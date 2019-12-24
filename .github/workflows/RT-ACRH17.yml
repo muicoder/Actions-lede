@@ -39,9 +39,9 @@ jobs:
           mysql* \
           php*
         # 利用挂载在 /mnt/ 的 14G 额外空间:
-        sudo mkdir -p /mnt/lede
-        sudo chown -R $USER /mnt/lede
-        ln -sv /mnt/lede lede
+        # sudo mkdir -p /mnt/lede
+        # sudo chown -R $USER /mnt/lede
+        # ln -sv /mnt/lede lede
 
     - name: Initialization environment
       env:
