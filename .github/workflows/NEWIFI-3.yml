@@ -66,7 +66,7 @@ jobs:
 
     - name: Costom configure file
       run: |
-        wget -q https://github.com/Mattaclp/build-lede-NEWIFI3/raw/master/.config
+        wget -q https://github.com/98416/Actions-LEDE-NEWIFI3/raw/master/newifi3.config -O .config
         [ -s ".config" ] || touch .config
         cp -v .config lede
         cd lede
